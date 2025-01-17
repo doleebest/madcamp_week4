@@ -12,11 +12,13 @@ import javax.annotation.PostConstruct;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-@Slf4j
 @Configuration
+@Slf4j
 public class FirebaseConfig {
     @Value("${firebase.credentials.path}")
     private String firebaseConfigPath;
+
+    private FirebaseApp firebaseApp;
 
     @PostConstruct
     public void initialize() {
@@ -25,8 +27,12 @@ public class FirebaseConfig {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
+
+            // 이미 초기화된 앱이 있는지 확인
             if (FirebaseApp.getApps().isEmpty()) {
-                FirebaseApp.initializeApp(options);
+                firebaseApp = FirebaseApp.initializeApp(options);
+            } else {
+                firebaseApp = FirebaseApp.getInstance();
             }
         } catch (IOException e) {
             log.error("Firebase initialization error", e);
@@ -35,6 +41,10 @@ public class FirebaseConfig {
 
     @Bean
     public FirebaseAuth firebaseAuth() {
-        return FirebaseAuth.getInstance();
+        // Firebase 앱이 초기화된 후에 FirebaseAuth 인스턴스 생성
+        if (firebaseApp == null) {
+            initialize();
+        }
+        return FirebaseAuth.getInstance(firebaseApp);
     }
 }
