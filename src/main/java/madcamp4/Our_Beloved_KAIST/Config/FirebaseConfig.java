@@ -4,6 +4,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.FirebaseDatabase;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +27,7 @@ public class FirebaseConfig {
             FileInputStream serviceAccount = new FileInputStream(firebaseConfigPath);
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .setDatabaseUrl("https://our-beloved-kaist-default-rtdb.firebaseio.com") // Firebase Console에서 확인할 수 있는 DB URL
                     .build();
 
             // 이미 초기화된 앱이 있는지 확인
@@ -46,5 +48,13 @@ public class FirebaseConfig {
             initialize();
         }
         return FirebaseAuth.getInstance(firebaseApp);
+    }
+
+    @Bean
+    public FirebaseDatabase firebaseDatabase() {
+        if (firebaseApp == null) {
+            initialize();
+        }
+        return FirebaseDatabase.getInstance(firebaseApp);
     }
 }
