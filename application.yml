@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 28723169449-g42kaekslrpjvi2jtdmv9da3nll7q1ea.apps.googleusercontent.com
+            client-secret: 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
+            scope:
+              - email
+              - profile
+
+firebase:
+  credentials:
+    path: firebaseServiceAccountKey.json
