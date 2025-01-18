@@ -1,0 +1,12 @@
+steps:
+  # gradle:7-jdk17 이미지 사용
+  - name: 'gradle:7-jdk21'
+    entrypoint: 'gradle'
+    args: ['build', '-x', 'test']
+
+  # 도커 이미지 빌드
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/our-beloved-kaist', '.']
+
+images:
+  - 'gcr.io/$PROJECT_ID/our-beloved-kaist'

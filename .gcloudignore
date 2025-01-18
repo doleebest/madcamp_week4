@@ -1,0 +1,15 @@
+.git
+.gitignore
+.gradle
+.idea
+*.iml
+*.iws
+*.ipr
+.settings
+.project
+.classpath
+build/tmp
+build/classes
+build/resources
+!build/libs/*.jar
+!firebaseServiceAccountKey.json

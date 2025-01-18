@@ -1,18 +1,41 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: 28723169449-g42kaekslrpjvi2jtdmv9da3nll7q1ea.apps.googleusercontent.com
-            client-secret: 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
-            scope:
-              - email
-              - profile
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.sql.init.SqlInitializationAutoConfiguration
+  jpa:
+    enabled: false
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          google:
+#            client-id: 28723169449-g42kaekslrpjvi2jtdmv9da3nll7q1ea.apps.googleusercontent.com
+#            client-secret: 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
+#            scope:
+#              - email
+#              - profile
+#            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
 firebase:
   credentials:
-    path: firebaseServiceAccountKey.json
+    # Cloud Run에서 주입하는 FIREBASE_KEY 환경 변수를 그대로 가져와 매핑
+    json: ${FIREBASE_KEY:}
+    # ↑ 만약 환경변수가 없을 때 기본값을 주고 싶다면 예: ${FIREBASE_KEY:NOT_FOUND} 처럼 써도 됨
+  database:
+    # Cloud Run에서 주입하는 FIREBASE_DATABASE_URL 환경 변수를 그대로 가져오되
+    # 혹시 없으면 기존에 써두었던 URL로
+    url: ${FIREBASE_DATABASE_URL:https://our-beloved-kaist-default-rtdb.firebaseio.com}
+
+
+app:
+  cors:
+    allowed-origins:
+      - https://our-beloved-kaist-web.web.app
+      - http://localhost:3000
