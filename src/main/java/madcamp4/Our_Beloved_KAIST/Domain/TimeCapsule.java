@@ -4,8 +4,7 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.GeoPoint;
 import com.google.firebase.remoteconfig.User;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.data.annotation.Id;
 
 import javax.xml.stream.Location;
@@ -14,22 +13,75 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Getter
-@Setter
+@Table(name = "time_capsules")
 public class TimeCapsule {
-    @Id @GeneratedValue
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    private User creator;
-
+    private String name;
+    private String ownerId;
     private String inviteCode;
     private LocalDateTime openDate;
-    private String songUrl;
-    private Double latitude;
-    private Double longitude;
-    private boolean isOpened;
+    private String location;
+    private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "timeCapsule", cascade = CascadeType.ALL)
-    private List<Memory> memories = new ArrayList<>();
+    // Getter & Setter
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
+    }
+
+    public void setOwnerId(String ownerId) {
+        this.ownerId = ownerId;
+    }
+
+    public String getInviteCode() {
+        return inviteCode;
+    }
+
+    public void setInviteCode(String inviteCode) {
+        this.inviteCode = inviteCode;
+    }
+
+    public LocalDateTime getOpenDate() {
+        return openDate;
+    }
+
+    public void setOpenDate(LocalDateTime openDate) {
+        this.openDate = openDate;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }
+

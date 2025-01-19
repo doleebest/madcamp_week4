@@ -5,6 +5,8 @@ import com.google.firebase.database.FirebaseDatabase;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import madcamp4.Our_Beloved_KAIST.Domain.User;
+import madcamp4.Our_Beloved_KAIST.Repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -18,6 +20,8 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
+
+    private final UserRepository userRepository;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -34,6 +38,20 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         String userId = oAuth2User.getAttribute("sub"); // Google의 고유 ID
         usersRef.child(userId).setValueAsync(userData);
+
+        // User 엔티티 저장 또는 업데이트
+        User user = userRepository.findById(userId)
+                .map(existingUser -> {
+                    existingUser.updateLastLogin();
+                    return existingUser;
+                })
+                .orElseGet(() -> User.builder()
+                        .id(userId)
+                        .email(oAuth2User.getAttribute("email"))
+                        .name(oAuth2User.getAttribute("name"))
+                        .build());
+
+        userRepository.save(user);
 
         response.sendRedirect("/api/auth/login/success");
     }
