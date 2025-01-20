@@ -9,9 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+
 import javax.annotation.PostConstruct;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 @Configuration
 @Slf4j
@@ -24,26 +26,39 @@ public class FirebaseConfig {
     @PostConstruct
     public void initialize() {
         try {
-            FileInputStream serviceAccount = new FileInputStream(firebaseConfigPath);
+            log.info("Starting Firebase initialization...");
+            log.info("Firebase config path: {}", firebaseConfigPath);
+
+            InputStream serviceAccount = new ClassPathResource(firebaseConfigPath).getInputStream();
+
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    .setDatabaseUrl("https://our-beloved-kaist-default-rtdb.firebaseio.com") // Firebase Console에서 확인할 수 있는 DB URL
+                    .setDatabaseUrl("https://our-beloved-kaist-default-rtdb.firebaseio.com")
                     .build();
 
-            // 이미 초기화된 앱이 있는지 확인
+            log.info("Firebase options built successfully");
+
             if (FirebaseApp.getApps().isEmpty()) {
                 firebaseApp = FirebaseApp.initializeApp(options);
+                log.info("Firebase application has been initialized");
             } else {
                 firebaseApp = FirebaseApp.getInstance();
+                log.info("Existing Firebase application instance retrieved");
             }
+
+            // 초기화 테스트
+            FirebaseDatabase.getInstance(firebaseApp);
+            log.info("Firebase Database instance successfully created");
+
         } catch (IOException e) {
-            log.error("Firebase initialization error", e);
+            log.error("Firebase initialization error: ", e);
+            throw new RuntimeException("Firebase initialization failed", e);
         }
     }
 
     @Bean
     public FirebaseAuth firebaseAuth() {
-        // Firebase 앱이 초기화된 후에 FirebaseAuth 인스턴스 생성
+        log.info("Creating FirebaseAuth bean");
         if (firebaseApp == null) {
             initialize();
         }
@@ -52,6 +67,7 @@ public class FirebaseConfig {
 
     @Bean
     public FirebaseDatabase firebaseDatabase() {
+        log.info("Creating FirebaseDatabase bean");
         if (firebaseApp == null) {
             initialize();
         }
