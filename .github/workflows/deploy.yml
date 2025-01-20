@@ -9,7 +9,7 @@ on:
 env:
  AWS_REGION: ap-northeast-2
  S3_BUCKET_NAME: kaist-github-actionss3-bucket
- CODE_DEPLOY_APPLICATION_NAME: kaist-codedeploy-app
+ CODE_DEPLOY_APPLICATION_NAME: our-beloved-kaist
  CODE_DEPLOY_DEPLOYMENT_GROUP_NAME: kaist-codedeploy-deployment-group
  APPLICATION: ${{ secrets.APPLICATION }}
 
