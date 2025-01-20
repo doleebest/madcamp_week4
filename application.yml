@@ -17,3 +17,9 @@ firebase:
   credentials:
     path: firebaseServiceAccountKey.json
     service-account: classpath:firebase-adminsdk.json
+
+logging:
+  level:
+    madcamp4.Our_Beloved_KAIST: DEBUG
+    org.springframework.security: DEBUG
+    com.google.firebase: DEBUG
