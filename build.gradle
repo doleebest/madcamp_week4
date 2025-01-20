@@ -1,26 +1,14 @@
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.4.1'
-	id 'io.spring.dependency-management' version '1.1.7'
+	id 'io.spring.dependency-management' version '1.1.4'
 }
 
 group = 'madcamp4'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
-}
-
-jar {
-	enabled = false
-}
-
-configurations {
-	compileOnly {
-		extendsFrom annotationProcessor
-	}
+	sourceCompatibility = '21'
 }
 
 repositories {
@@ -28,28 +16,52 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Spring Boot
+	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.springframework.boot:spring-boot-starter-web-services'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation group: 'com.google.firebase', name: 'firebase-admin', version: '9.1.1'
-	implementation 'com.google.cloud:google-cloud-firestore:3.7.0'
-	implementation 'io.jsonwebtoken:jjwt:0.9.1'
-	implementation 'org.springframework.security:spring-security-oauth2-client'
-	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
 
-	annotationProcessor 'org.projectlombok:lombok'
-	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	// Exclude Spring Boot's default logging
+	configurations {
+		implementation.exclude module: 'spring-boot-starter-logging'
+	}
 
+	// Add Log4j2 dependency
+	implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+
+	// Firebase
+	implementation 'com.google.firebase:firebase-admin:9.1.1'
+	//implementation 'com.google.firebase:firebase-admin:latest-version'
+
+	// Lombok
 	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
-	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
-	runtimeOnly 'com.mysql:mysql-connector-j'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// Test
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+	implementation 'ch.qos.logback:logback-classic'
+	implementation 'org.slf4j:slf4j-api'
+}
+
+configurations.all {
+	exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+	exclude group: 'ch.qos.logback', module: 'logback-classic'
+	exclude group: 'org.apache.logging.log4j', module: 'log4j-to-slf4j'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	enabled = false
+}
+//
+//tasks.withType(JavaExec) {
+//	jvmArgs = ['--add-opens', 'java.base/java.time.chrono=ALL-UNNAMED']
+//}
+
+bootRun {
+	jvmArgs = [
+			'--add-opens', 'java.base/java.time.chrono=ALL-UNNAMED',
+			'--add-opens', 'java.base/java.time=ALL-UNNAMED',
+			'--add-opens', 'java.base/java.util=ALL-UNNAMED'
+	]
 }
