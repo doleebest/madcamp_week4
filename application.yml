@@ -16,3 +16,4 @@ spring:
 firebase:
   credentials:
     path: firebaseServiceAccountKey.json
+    service-account: classpath:firebase-adminsdk.json
