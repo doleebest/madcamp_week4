@@ -1,12 +1,15 @@
 package madcamp4.Our_Beloved_KAIST.Service;
 
 import com.google.firebase.database.*;
+import madcamp4.Our_Beloved_KAIST.Domain.ARMarker;
 import madcamp4.Our_Beloved_KAIST.Domain.Memory;
 import madcamp4.Our_Beloved_KAIST.Domain.MemoryType;
 import madcamp4.Our_Beloved_KAIST.Domain.TimeCapsule;
 import madcamp4.Our_Beloved_KAIST.Exception.ResourceNotFoundException;
+import madcamp4.Our_Beloved_KAIST.dto.request.ARMarkerRequest;
 import madcamp4.Our_Beloved_KAIST.dto.request.CreateCapsuleRequest;
 import madcamp4.Our_Beloved_KAIST.dto.request.CreateMemoryRequest;
+import madcamp4.Our_Beloved_KAIST.dto.response.NearbyCapsuleResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -27,13 +30,16 @@ import com.google.firebase.database.ValueEventListener;
 public class TimeCapsuleService {
     private final DatabaseReference capsuleReference;
     private final DatabaseReference memoryReference;
+    private final DatabaseReference markerReference;
 
     @Autowired
     public TimeCapsuleService(
             @Qualifier("timeCapsulesReference") DatabaseReference capsuleReference,
-            @Qualifier("memoriesReference") DatabaseReference memoryReference) {
+            @Qualifier("memoriesReference") DatabaseReference memoryReference,
+            @Qualifier("markerReference") DatabaseReference markerReference) {
         this.capsuleReference = capsuleReference;
         this.memoryReference = memoryReference;
+        this.markerReference = markerReference;
     }
     public TimeCapsule createCapsule(CreateCapsuleRequest request) {
         String capsuleId = UUID.randomUUID().toString();
@@ -315,11 +321,6 @@ public class TimeCapsuleService {
         return future;
     }
 
-//    public boolean isOpenable(String capsuleId) {
-//        TimeCapsule capsule = getCapsule(capsuleId);
-//        return capsule.isSealed() && LocalDateTime.now().isAfter(capsule.getOpenDate());
-//    }
-
     public TimeCapsule getCapsule(String capsuleId) {
         CompletableFuture<TimeCapsule> future = new CompletableFuture<>();
 
@@ -341,5 +342,147 @@ public class TimeCapsuleService {
             throw new ResourceNotFoundException("Capsule not found");
         }
         return capsule;
+    }
+
+    // 근처 캡슐 찾기
+    public List<NearbyCapsuleResponse> findNearbyCapsules(double lat, double lng, double radiusInMeters) {
+        System.out.println("Finding capsules near: " + lat + ", " + lng);
+        CompletableFuture<List<NearbyCapsuleResponse>> resultFuture = new CompletableFuture<>();
+
+        try {
+            markerReference.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    try {
+                        List<NearbyCapsuleResponse> nearbyCapsules = new ArrayList<>();
+
+                        for (DataSnapshot markerSnapshot : dataSnapshot.getChildren()) {
+                            Map<String, Object> markerMap = (Map<String, Object>) markerSnapshot.getValue();
+                            if (markerMap != null) {
+                                double markerLat = ((Number) markerMap.get("latitude")).doubleValue();
+                                double markerLng = ((Number) markerMap.get("longitude")).doubleValue();
+
+                                double distance = calculateDistance(lat, lng, markerLat, markerLng);
+
+                                if (distance <= radiusInMeters) {
+                                    String capsuleId = (String) markerMap.get("capsuleId");
+                                    nearbyCapsules.add(NearbyCapsuleResponse.builder()
+                                            .capsuleId(capsuleId)
+                                            .latitude(markerLat)
+                                            .longitude(markerLng)
+                                            .distance(distance)
+                                            .build());
+                                }
+                            }
+                        }
+
+                        resultFuture.complete(nearbyCapsules);
+                    } catch (Exception e) {
+                        resultFuture.completeExceptionally(e);
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    resultFuture.completeExceptionally(databaseError.toException());
+                }
+            });
+
+            return resultFuture.get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find nearby capsules: " + e.getMessage());
+        }
+    }
+
+    // AR 마커 저장
+    public ARMarker saveARMarker(String capsuleId, ARMarkerRequest request) {
+        System.out.println("Saving AR marker for capsule: " + capsuleId);
+        CompletableFuture<ARMarker> resultFuture = new CompletableFuture<>();
+
+        try {
+            String markerId = UUID.randomUUID().toString();
+            ARMarker marker = new ARMarker();
+            marker.setId(markerId);
+            marker.setCapsuleId(capsuleId);
+            marker.setLatitude(request.getLatitude());
+            marker.setLongitude(request.getLongitude());
+            marker.setMarkerData(request.getMarkerData());
+            marker.setCreatedAt(LocalDateTime.now());
+
+            Map<String, Object> markerValues = new HashMap<>();
+            markerValues.put("id", marker.getId());
+            markerValues.put("capsuleId", marker.getCapsuleId());
+            markerValues.put("latitude", marker.getLatitude());
+            markerValues.put("longitude", marker.getLongitude());
+            markerValues.put("markerData", marker.getMarkerData());
+            markerValues.put("createdAt", marker.getCreatedAt());
+
+            markerReference.child(markerId).setValue(markerValues, (error, ref) -> {
+                if (error != null) {
+                    resultFuture.completeExceptionally(error.toException());
+                } else {
+                    resultFuture.complete(marker);
+                }
+            });
+
+            return resultFuture.get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save AR marker: " + e.getMessage());
+        }
+    }
+
+    // AR 마커 조회
+    public ARMarker getARMarker(String capsuleId) {
+        System.out.println("Getting AR marker for capsule: " + capsuleId);
+        CompletableFuture<ARMarker> resultFuture = new CompletableFuture<>();
+
+        try {
+            markerReference.orderByChild("capsuleId").equalTo(capsuleId)
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot dataSnapshot) {
+                            if (!dataSnapshot.exists()) {
+                                resultFuture.completeExceptionally(
+                                        new ResourceNotFoundException("AR marker not found"));
+                                return;
+                            }
+
+                            DataSnapshot markerSnapshot = dataSnapshot.getChildren().iterator().next();
+                            Map<String, Object> markerMap =
+                                    (Map<String, Object>) markerSnapshot.getValue();
+
+                            ARMarker marker = new ARMarker();
+                            marker.setId((String) markerMap.get("id"));
+                            marker.setCapsuleId((String) markerMap.get("capsuleId"));
+                            marker.setLatitude(((Number) markerMap.get("latitude")).doubleValue());
+                            marker.setLongitude(((Number) markerMap.get("longitude")).doubleValue());
+                            marker.setMarkerData((String) markerMap.get("markerData"));
+                            marker.setCreatedAtString((String) markerMap.get("createdAt"));
+
+                            resultFuture.complete(marker);
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
+                            resultFuture.completeExceptionally(databaseError.toException());
+                        }
+                    });
+
+            return resultFuture.get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get AR marker: " + e.getMessage());
+        }
+    }
+
+    // 거리 계산 헬퍼 메소드 (Haversine formula)
+    private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+        final int R = 6371000; // 지구 반경 (미터)
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lngDistance = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lngDistance / 2) * Math.sin(lngDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
 }

@@ -38,6 +38,11 @@ public class FirebaseConfig {
     }
 
     @Bean
+    public DatabaseReference markerReference(FirebaseDatabase firebaseDatabase) {
+        return firebaseDatabase.getReference("ar_markers");
+    }
+
+    @Bean
     public DatabaseReference memoriesReference(FirebaseDatabase firebaseDatabase) {
         return firebaseDatabase.getReference("memories");
     }

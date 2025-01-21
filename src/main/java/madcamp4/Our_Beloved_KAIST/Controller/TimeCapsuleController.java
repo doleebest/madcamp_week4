@@ -1,16 +1,16 @@
 package madcamp4.Our_Beloved_KAIST.Controller;
 
 import lombok.RequiredArgsConstructor;
+import madcamp4.Our_Beloved_KAIST.Domain.ARMarker;
 import madcamp4.Our_Beloved_KAIST.Domain.Memory;
 import madcamp4.Our_Beloved_KAIST.Exception.ResourceNotFoundException;
-import madcamp4.Our_Beloved_KAIST.dto.response.OpenableResponse;
+import madcamp4.Our_Beloved_KAIST.dto.request.ARMarkerRequest;
+import madcamp4.Our_Beloved_KAIST.dto.response.*;
 import madcamp4.Our_Beloved_KAIST.Domain.TimeCapsule;
 import madcamp4.Our_Beloved_KAIST.Service.TimeCapsuleService;
 import madcamp4.Our_Beloved_KAIST.dto.request.CreateCapsuleRequest;
 import madcamp4.Our_Beloved_KAIST.dto.request.CreateMemoryRequest;
 import madcamp4.Our_Beloved_KAIST.dto.request.SealCapsuleRequest;
-import madcamp4.Our_Beloved_KAIST.dto.response.MemoryResponse;
-import madcamp4.Our_Beloved_KAIST.dto.response.TimeCapsuleResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+
+
 
 @RestController
 @RequestMapping("/api/v1/capsules")
@@ -105,6 +107,47 @@ public class TimeCapsuleController {
         } catch (Exception e) {
             System.err.println("Error checking capsule openable status: " + e.getMessage());
             e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // 근처 캡슐 조회
+    @GetMapping("/nearby")
+    public ResponseEntity<List<NearbyCapsuleResponse>> findNearbyCapsules(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam double radius) {
+        try {
+            List<NearbyCapsuleResponse> nearbyCapsules =
+                    timeCapsuleService.findNearbyCapsules(lat, lng, radius);
+            return ResponseEntity.ok(nearbyCapsules);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // AR 마커 저장
+    @PostMapping("/{capsuleId}/ar-marker")
+    public ResponseEntity<ARMarkerResponse> saveARMarker(
+            @PathVariable String capsuleId,
+            @RequestBody ARMarkerRequest request) {
+        try {
+            ARMarker marker = timeCapsuleService.saveARMarker(capsuleId, request);
+            return ResponseEntity.ok(ARMarkerResponse.from(marker));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // AR 마커 조회
+    @GetMapping("/{capsuleId}/ar-marker")
+    public ResponseEntity<ARMarkerResponse> getARMarker(@PathVariable String capsuleId) {
+        try {
+            ARMarker marker = timeCapsuleService.getARMarker(capsuleId);
+            return ResponseEntity.ok(ARMarkerResponse.from(marker));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
