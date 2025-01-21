@@ -1,4 +1,4 @@
-package madcamp4.Our_Beloved_KAIST.Domain;
+package madcamp4.Our_Beloved_KAIST.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

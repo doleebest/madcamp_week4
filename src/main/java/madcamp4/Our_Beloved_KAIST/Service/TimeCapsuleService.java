@@ -1,87 +1,181 @@
 package madcamp4.Our_Beloved_KAIST.Service;
 
-import lombok.RequiredArgsConstructor;
+import com.google.firebase.database.*;
 import madcamp4.Our_Beloved_KAIST.Domain.Memory;
+import madcamp4.Our_Beloved_KAIST.Domain.MemoryType;
 import madcamp4.Our_Beloved_KAIST.Domain.TimeCapsule;
-import madcamp4.Our_Beloved_KAIST.Dto.CreateMemoryRequest;
-import madcamp4.Our_Beloved_KAIST.Repository.MemoryRepository;
-import madcamp4.Our_Beloved_KAIST.Repository.TimeCapsuleRepository;
+import madcamp4.Our_Beloved_KAIST.Exception.ResourceNotFoundException;
+import madcamp4.Our_Beloved_KAIST.dto.request.CreateCapsuleRequest;
+import madcamp4.Our_Beloved_KAIST.dto.request.CreateMemoryRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.ValueEventListener;
 
 @Service
-@RequiredArgsConstructor
 public class TimeCapsuleService {
-    private final TimeCapsuleRepository capsuleRepository;
-    private final MemoryRepository memoryRepository;
+    private final DatabaseReference capsuleReference;
+    private final DatabaseReference memoryReference;
 
-    @Transactional
+    public TimeCapsuleService() {
+        this.capsuleReference = FirebaseDatabase.getInstance().getReference("time_capsules");
+        this.memoryReference = FirebaseDatabase.getInstance().getReference("memories");
+    }
+
     public TimeCapsule createCapsule(CreateCapsuleRequest request) {
+        String capsuleId = UUID.randomUUID().toString();
         TimeCapsule capsule = new TimeCapsule();
+        capsule.setId(capsuleId);
         capsule.setName(request.getName());
         capsule.setCreator(request.getCreator());
         capsule.setCreatedAt(LocalDateTime.now());
         capsule.setSealed(false);
-        return capsuleRepository.save(capsule);
+
+        Map<String, Object> capsuleValues = new HashMap<>();
+        capsuleValues.put("id", capsule.getId());
+        capsuleValues.put("name", capsule.getName());
+        capsuleValues.put("creator", capsule.getCreator());
+        capsuleValues.put("createdAt", capsule.getCreatedAt().toString());
+        capsuleValues.put("sealed", capsule.isSealed());
+
+        capsuleReference.child(capsuleId).setValue(capsuleValues, (error, ref) -> {
+            if (error != null) {
+                throw new RuntimeException("Failed to create capsule: " + error.getMessage());
+            }
+        });
+        return capsule;
     }
 
-    @Transactional
-    public Memory createMemory(Long capsuleId, CreateMemoryRequest request) {
-        TimeCapsule capsule = capsuleRepository.findById(capsuleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Capsule not found"));
-
+    public Memory createMemory(String capsuleId, CreateMemoryRequest request) {
+        TimeCapsule capsule = getCapsule(capsuleId);
         if (capsule.isSealed()) {
             throw new IllegalStateException("Cannot add memories to sealed capsule");
         }
 
+        String memoryId = UUID.randomUUID().toString();
         Memory memory = new Memory();
-        memory.setType(request.getType());
+        memory.setId(memoryId);
+        memory.setType(MemoryType.valueOf(request.getType().name())); // MemoryType 호환 수정
         memory.setContent(request.getContent());
-        memory.setTimeCapsule(capsule);
+        memory.setTimeCapsuleId(capsuleId);
         memory.setCreatedAt(LocalDateTime.now());
 
-        return memoryRepository.save(memory);
+        Map<String, Object> memoryValues = new HashMap<>();
+        memoryValues.put("id", memory.getId());
+        memoryValues.put("type", memory.getType().toString());
+        memoryValues.put("content", memory.getContent());
+        memoryValues.put("timeCapsuleId", memory.getTimeCapsuleId());
+        memoryValues.put("createdAt", memory.getCreatedAt().toString());
+
+        memoryReference.child(memoryId).setValue(memoryValues, (error, ref) -> {
+            if (error != null) {
+                throw new RuntimeException("Failed to create memory: " + error.getMessage());
+            }
+        });
+        return memory;
     }
 
-    @Transactional
-    public TimeCapsule sealCapsule(Long capsuleId, LocalDateTime openDate) {
-        TimeCapsule capsule = capsuleRepository.findById(capsuleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Capsule not found"));
-
+    public TimeCapsule sealCapsule(String capsuleId, LocalDateTime openDate) {
+        TimeCapsule capsule = getCapsule(capsuleId);
         if (capsule.isSealed()) {
             throw new IllegalStateException("Capsule is already sealed");
         }
 
         capsule.setSealed(true);
         capsule.setOpenDate(openDate);
-        return capsuleRepository.save(capsule);
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("sealed", true);
+        updates.put("openDate", openDate.toString());
+
+        capsuleReference.child(capsuleId).updateChildren(updates, (error, ref) -> {
+            if (error != null) {
+                throw new RuntimeException("Failed to seal capsule: " + error.getMessage());
+            }
+        });
+        return capsule;
     }
 
-    @Transactional(readOnly = true)
-    public List<Memory> getAllMemories(Long capsuleId) {
-        TimeCapsule capsule = capsuleRepository.findById(capsuleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Capsule not found"));
-        return memoryRepository.findByTimeCapsuleIdOrderByCreatedAtDesc(capsuleId);
+    public List<Memory> getAllMemories(String capsuleId) {
+        CompletableFuture<List<Memory>> future = new CompletableFuture<>();
+        List<Memory> memories = new ArrayList<>();
+
+        memoryReference.orderByChild("timeCapsuleId").equalTo(capsuleId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot snapshot) {
+                        for (DataSnapshot child : snapshot.getChildren()) {
+                            Memory memory = child.getValue(Memory.class);
+                            if (memory != null) {
+                                memories.add(memory);
+                            }
+                        }
+                        future.complete(memories);
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError error) {
+                        future.completeExceptionally(error.toException());
+                    }
+                });
+
+        return future.join();
     }
 
-    @Transactional(readOnly = true)
-    public Memory getMemory(Long capsuleId, Long memoryId) {
-        return memoryRepository.findByIdAndTimeCapsuleId(memoryId, capsuleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Memory not found"));
+    public CompletableFuture<Memory> getMemory(String capsuleId, String memoryId) {
+        CompletableFuture<Memory> future = new CompletableFuture<>();
+
+        memoryReference.child(memoryId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                Memory memory = dataSnapshot.getValue(Memory.class);
+                if (memory == null || !memory.getTimeCapsuleId().equals(capsuleId)) {
+                    future.completeExceptionally(new ResourceNotFoundException("Memory not found"));
+                } else {
+                    future.complete(memory);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                future.completeExceptionally(new RuntimeException("Database error: " + databaseError.getMessage()));
+            }
+        });
+
+        return future;
     }
 
-    @Transactional(readOnly = true)
-    public boolean isOpenable(Long capsuleId) {
-        TimeCapsule capsule = capsuleRepository.findById(capsuleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Capsule not found"));
+    public boolean isOpenable(String capsuleId) {
+        TimeCapsule capsule = getCapsule(capsuleId);
+        return capsule.isSealed() && LocalDateTime.now().isAfter(capsule.getOpenDate());
+    }
 
-        if (!capsule.isSealed()) {
-            return false;
+    public TimeCapsule getCapsule(String capsuleId) {
+        CompletableFuture<TimeCapsule> future = new CompletableFuture<>();
+
+        capsuleReference.child(capsuleId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                TimeCapsule capsule = snapshot.getValue(TimeCapsule.class);
+                future.complete(capsule);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                future.completeExceptionally(error.toException());
+            }
+        });
+
+        TimeCapsule capsule = future.join();
+        if (capsule == null) {
+            throw new ResourceNotFoundException("Capsule not found");
         }
-
-        return LocalDateTime.now().isAfter(capsule.getOpenDate());
+        return capsule;
     }
 }

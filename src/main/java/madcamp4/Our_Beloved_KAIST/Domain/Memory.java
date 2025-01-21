@@ -1,31 +1,22 @@
 package madcamp4.Our_Beloved_KAIST.Domain;
 
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import org.springframework.data.annotation.Id;
-
-import java.lang.management.MemoryType;
 import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.Setter;
 
-@Entity
 @Getter
 @Setter
-@NoArgsConstructor
 public class Memory {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
-    @Enumerated(EnumType.STRING)
-    private MemoryType type; // TEXT, IMAGE, VIDEO
-
-    private String content; // 텍스트 내용 또는 Firebase 저장소 URL
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "capsule_id")
-    private TimeCapsule timeCapsule;
-
+    private String id;
+    private MemoryType type;
+    private String content;
+    private String timeCapsuleId;
     private LocalDateTime createdAt;
+    private TimeCapsule timeCapsule; // 이 필드가 있어야 함
+
+    // 필요시 Getter를 명시적으로 정의
+    public TimeCapsule getTimeCapsule() {
+        return timeCapsule;
+    }
 }

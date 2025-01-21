@@ -8,21 +8,16 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
 @Getter
 @Setter
 @NoArgsConstructor
 public class TimeCapsule {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
+    private String id;  // Firebase에서 관리하는 String ID
     private String name;
     private String creator;
     private LocalDateTime createdAt;
     private LocalDateTime openDate;
     private boolean sealed;
 
-    @OneToMany(mappedBy = "timeCapsule", cascade = CascadeType.ALL)
     private List<Memory> memories = new ArrayList<>();
 }

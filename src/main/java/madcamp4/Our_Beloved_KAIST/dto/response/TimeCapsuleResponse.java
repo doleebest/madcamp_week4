@@ -1,4 +1,4 @@
-package madcamp4.Our_Beloved_KAIST.Dto;
+package madcamp4.Our_Beloved_KAIST.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class TimeCapsuleResponse {
-    private Long id;
+    private String id;  // Long -> String 변경
     private String name;
     private String creator;
     private LocalDateTime createdAt;
@@ -23,7 +23,7 @@ public class TimeCapsuleResponse {
 
     public static TimeCapsuleResponse from(TimeCapsule capsule) {
         return TimeCapsuleResponse.builder()
-                .id(capsule.getId())
+                .id(capsule.getId())  // Long -> String으로 수정 시 id 값을 String으로 변환
                 .name(capsule.getName())
                 .creator(capsule.getCreator())
                 .createdAt(capsule.getCreatedAt())
