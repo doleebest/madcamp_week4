@@ -97,9 +97,16 @@ public class TimeCapsuleController {
 
     // 캡슐 개봉 가능 여부 확인
     @GetMapping("/{capsuleId}/openable")
-    public ResponseEntity<OpenableResponse> isOpenable(@PathVariable String capsuleId) {  // capsuleId를 String으로 변경
-        boolean openable = timeCapsuleService.isOpenable(capsuleId);
-        return ResponseEntity.ok(new OpenableResponse(openable));
+    public ResponseEntity<OpenableResponse> isOpenable(@PathVariable String capsuleId) {
+        try {
+            System.out.println("Receiving request to check if capsule is openable: " + capsuleId);
+            boolean openable = timeCapsuleService.isOpenable(capsuleId);
+            return ResponseEntity.ok(new OpenableResponse(openable));
+        } catch (Exception e) {
+            System.err.println("Error checking capsule openable status: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }
 

@@ -196,8 +196,54 @@ public class TimeCapsuleService {
     }
 
     public boolean isOpenable(String capsuleId) {
-        TimeCapsule capsule = getCapsule(capsuleId);
-        return capsule.isSealed() && LocalDateTime.now().isAfter(capsule.getOpenDateAsDateTime());
+        System.out.println("Checking if capsule is openable: " + capsuleId);
+        CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
+
+        try {
+            capsuleReference.child(capsuleId).addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    try {
+                        Map<String, Object> capsuleMap = (Map<String, Object>) dataSnapshot.getValue();
+                        if (capsuleMap == null) {
+                            resultFuture.completeExceptionally(new ResourceNotFoundException("Capsule not found"));
+                            return;
+                        }
+
+                        boolean isSealed = (boolean) capsuleMap.getOrDefault("sealed", false);
+                        String openDateStr = (String) capsuleMap.get("openDate");
+
+                        if (!isSealed || openDateStr == null) {
+                            resultFuture.complete(false);
+                            return;
+                        }
+
+                        LocalDateTime openDate = LocalDateTime.parse(openDateStr);
+                        boolean isOpenable = LocalDateTime.now().isAfter(openDate);
+
+                        System.out.println("Capsule openable status: " + isOpenable);
+                        resultFuture.complete(isOpenable);
+
+                    } catch (Exception e) {
+                        System.err.println("Error checking openable status: " + e.getMessage());
+                        resultFuture.completeExceptionally(e);
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    System.err.println("Database error: " + databaseError.getMessage());
+                    resultFuture.completeExceptionally(databaseError.toException());
+                }
+            });
+
+            return resultFuture.get(10, TimeUnit.SECONDS);
+
+        } catch (Exception e) {
+            System.err.println("Failed to check openable status: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to check openable status: " + e.getMessage());
+        }
     }
 
     public List<Memory> getAllMemories(String capsuleId) {
