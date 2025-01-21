@@ -4,16 +4,16 @@ server:
 spring:
   main:
     allow-bean-definition-overriding: true
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: 28723169449-g42kaekslrpjvi2jtdmv9da3nll7q1ea.apps.googleusercontent.com
-            client-secret: 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
-            scope:
-              - email
-              - profile
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          google:
+#            client-id: 28723169449-g42kaekslrpjvi2jtdmv9da3nll7q1ea.apps.googleusercontent.com
+#            client-secret: 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
+#            scope:
+#              - email
+#              - profile
 
 firebase:
   credentials:
