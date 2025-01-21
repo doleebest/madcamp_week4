@@ -16,16 +16,16 @@ public class MemoryResponse {
     private String id;  // Long -> String 변경
     private MemoryType type;
     private String content;
-    private LocalDateTime createdAt;
+    private String createdAt;
     private String capsuleId;  // Long -> String 변경
 
     public static MemoryResponse from(Memory memory) {
         return MemoryResponse.builder()
-                .id(memory.getId())  // Long -> String으로 수정 시 id 값을 String으로 변환
+                .id(memory.getId())
                 .type(memory.getType())
                 .content(memory.getContent())
-                .createdAt(memory.getCreatedAt())
-                .capsuleId(memory.getTimeCapsule().getId())  // Long -> String으로 수정 시
+                .createdAt(memory.getCreatedAt())  // 이미 String으로 저장된 값을 그대로 사용
+                .capsuleId(memory.getTimeCapsuleId())  // memory.getTimeCapsule().getId() 대신 직접 timeCapsuleId 사용
                 .build();
     }
 }

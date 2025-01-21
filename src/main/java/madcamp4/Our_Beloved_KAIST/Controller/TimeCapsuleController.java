@@ -2,6 +2,7 @@ package madcamp4.Our_Beloved_KAIST.Controller;
 
 import lombok.RequiredArgsConstructor;
 import madcamp4.Our_Beloved_KAIST.Domain.Memory;
+import madcamp4.Our_Beloved_KAIST.Exception.ResourceNotFoundException;
 import madcamp4.Our_Beloved_KAIST.dto.response.OpenableResponse;
 import madcamp4.Our_Beloved_KAIST.Domain.TimeCapsule;
 import madcamp4.Our_Beloved_KAIST.Service.TimeCapsuleService;
@@ -10,6 +11,7 @@ import madcamp4.Our_Beloved_KAIST.dto.request.CreateMemoryRequest;
 import madcamp4.Our_Beloved_KAIST.dto.request.SealCapsuleRequest;
 import madcamp4.Our_Beloved_KAIST.dto.response.MemoryResponse;
 import madcamp4.Our_Beloved_KAIST.dto.response.TimeCapsuleResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
@@ -34,12 +36,25 @@ public class TimeCapsuleController {
 
     // 구슬 생성
     @PostMapping("/{capsuleId}/memories")
-    @Async
     public ResponseEntity<MemoryResponse> createMemory(
-            @PathVariable String capsuleId,  // capsuleId를 String으로 변경
+            @PathVariable String capsuleId,
             @RequestBody CreateMemoryRequest request) {
-        Memory memory = timeCapsuleService.createMemory(capsuleId, request);
-        return ResponseEntity.ok(MemoryResponse.from(memory));
+        try {
+            System.out.println("Received memory creation request for capsule: " + capsuleId);
+            Memory memory = timeCapsuleService.createMemory(capsuleId, request);
+            System.out.println("Memory created successfully");
+            return ResponseEntity.ok(MemoryResponse.from(memory));
+        } catch (ResourceNotFoundException e) {
+            System.err.println("Capsule not found: " + e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            System.err.println("Invalid state: " + e.getMessage());
+            return ResponseEntity.badRequest().body(null);
+        } catch (Exception e) {
+            System.err.println("Error creating memory: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // 캡슐 봉인

@@ -7,11 +7,16 @@ import madcamp4.Our_Beloved_KAIST.Domain.TimeCapsule;
 import madcamp4.Our_Beloved_KAIST.Exception.ResourceNotFoundException;
 import madcamp4.Our_Beloved_KAIST.dto.request.CreateCapsuleRequest;
 import madcamp4.Our_Beloved_KAIST.dto.request.CreateMemoryRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.DataSnapshot;
@@ -23,11 +28,13 @@ public class TimeCapsuleService {
     private final DatabaseReference capsuleReference;
     private final DatabaseReference memoryReference;
 
-    public TimeCapsuleService() {
-        this.capsuleReference = FirebaseDatabase.getInstance().getReference("time_capsules");
-        this.memoryReference = FirebaseDatabase.getInstance().getReference("memories");
+    @Autowired
+    public TimeCapsuleService(
+            @Qualifier("timeCapsulesReference") DatabaseReference capsuleReference,
+            @Qualifier("memoriesReference") DatabaseReference memoryReference) {
+        this.capsuleReference = capsuleReference;
+        this.memoryReference = memoryReference;
     }
-
     public TimeCapsule createCapsule(CreateCapsuleRequest request) {
         String capsuleId = UUID.randomUUID().toString();
         TimeCapsule capsule = new TimeCapsule();
@@ -53,32 +60,72 @@ public class TimeCapsuleService {
     }
 
     public Memory createMemory(String capsuleId, CreateMemoryRequest request) {
-        TimeCapsule capsule = getCapsule(capsuleId);
-        if (capsule.isSealed()) {
-            throw new IllegalStateException("Cannot add memories to sealed capsule");
+        System.out.println("Creating memory for capsule: " + capsuleId);
+
+        CompletableFuture<Memory> resultFuture = new CompletableFuture<>();
+
+        try {
+            capsuleReference.child(capsuleId).addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    try {
+                        Map<String, Object> capsuleMap = (Map<String, Object>) dataSnapshot.getValue();
+                        if (capsuleMap == null) {
+                            resultFuture.completeExceptionally(new ResourceNotFoundException("Capsule not found"));
+                            return;
+                        }
+
+                        boolean isSealed = (boolean) capsuleMap.get("sealed");
+                        if (isSealed) {
+                            resultFuture.completeExceptionally(new IllegalStateException("Cannot add memories to sealed capsule"));
+                            return;
+                        }
+
+                        // 새 메모리 생성
+                        String memoryId = UUID.randomUUID().toString();
+                        Memory memory = new Memory();
+                        memory.setId(memoryId);
+                        memory.setType(request.getType());
+                        memory.setContent(request.getContent());
+                        memory.setTimeCapsuleId(capsuleId);
+                        memory.setCreatedAt(LocalDateTime.now());
+
+                        Map<String, Object> memoryValues = new HashMap<>();
+                        memoryValues.put("id", memory.getId());
+                        memoryValues.put("type", memory.getType().toString());
+                        memoryValues.put("content", memory.getContent());
+                        memoryValues.put("timeCapsuleId", memory.getTimeCapsuleId());
+                        memoryValues.put("createdAt", memory.getCreatedAt());
+
+                        memoryReference.child(memoryId).setValue(memoryValues, (error, ref) -> {
+                            if (error != null) {
+                                System.err.println("Error creating memory: " + error.getMessage());
+                                resultFuture.completeExceptionally(error.toException());
+                            } else {
+                                System.out.println("Memory created successfully with ID: " + memoryId);
+                                resultFuture.complete(memory);
+                            }
+                        });
+
+                    } catch (Exception e) {
+                        resultFuture.completeExceptionally(e);
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    System.err.println("Database error: " + databaseError.getMessage());
+                    resultFuture.completeExceptionally(databaseError.toException());
+                }
+            });
+
+            return resultFuture.get(10, TimeUnit.SECONDS);
+
+        } catch (Exception e) {
+            System.err.println("Failed to create memory: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to create memory: " + e.getMessage());
         }
-
-        String memoryId = UUID.randomUUID().toString();
-        Memory memory = new Memory();
-        memory.setId(memoryId);
-        memory.setType(MemoryType.valueOf(request.getType().name())); // MemoryType 호환 수정
-        memory.setContent(request.getContent());
-        memory.setTimeCapsuleId(capsuleId);
-        memory.setCreatedAt(LocalDateTime.now());
-
-        Map<String, Object> memoryValues = new HashMap<>();
-        memoryValues.put("id", memory.getId());
-        memoryValues.put("type", memory.getType().toString());
-        memoryValues.put("content", memory.getContent());
-        memoryValues.put("timeCapsuleId", memory.getTimeCapsuleId());
-        memoryValues.put("createdAt", memory.getCreatedAt().toString());
-
-        memoryReference.child(memoryId).setValue(memoryValues, (error, ref) -> {
-            if (error != null) {
-                throw new RuntimeException("Failed to create memory: " + error.getMessage());
-            }
-        });
-        return memory;
     }
 
     public TimeCapsule sealCapsule(String capsuleId, LocalDateTime openDate) {
