@@ -150,29 +150,49 @@ public class TimeCapsuleService {
     }
 
     public List<Memory> getAllMemories(String capsuleId) {
-        CompletableFuture<List<Memory>> future = new CompletableFuture<>();
-        List<Memory> memories = new ArrayList<>();
+        System.out.println("Getting all memories for capsule: " + capsuleId);
+        CompletableFuture<List<Memory>> resultFuture = new CompletableFuture<>();
 
-        memoryReference.orderByChild("timeCapsuleId").equalTo(capsuleId)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot snapshot) {
-                        for (DataSnapshot child : snapshot.getChildren()) {
-                            Memory memory = child.getValue(Memory.class);
-                            if (memory != null) {
-                                memories.add(memory);
+        try {
+            memoryReference.orderByChild("timeCapsuleId").equalTo(capsuleId)
+                    .addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot snapshot) {
+                            try {
+                                List<Memory> memories = new ArrayList<>();
+                                for (DataSnapshot memorySnapshot : snapshot.getChildren()) {
+                                    Map<String, Object> memoryMap = (Map<String, Object>) memorySnapshot.getValue();
+                                    if (memoryMap != null) {
+                                        Memory memory = new Memory();
+                                        memory.setId((String) memoryMap.get("id"));
+                                        memory.setType(MemoryType.valueOf((String) memoryMap.get("type")));
+                                        memory.setContent((String) memoryMap.get("content"));
+                                        memory.setTimeCapsuleId((String) memoryMap.get("timeCapsuleId"));
+                                        memory.setCreatedAtString((String) memoryMap.get("createdAt"));
+                                        memories.add(memory);
+                                    }
+                                }
+                                System.out.println("Found " + memories.size() + " memories");
+                                resultFuture.complete(memories);
+                            } catch (Exception e) {
+                                System.err.println("Error processing memories: " + e.getMessage());
+                                resultFuture.completeExceptionally(e);
                             }
                         }
-                        future.complete(memories);
-                    }
 
-                    @Override
-                    public void onCancelled(DatabaseError error) {
-                        future.completeExceptionally(error.toException());
-                    }
-                });
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
+                            System.err.println("Database error: " + databaseError.getMessage());
+                            resultFuture.completeExceptionally(databaseError.toException());
+                        }
+                    });
 
-        return future.join();
+            return resultFuture.get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            System.err.println("Failed to get memories: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to get memories: " + e.getMessage());
+        }
     }
 
     public CompletableFuture<Memory> getMemory(String capsuleId, String memoryId) {

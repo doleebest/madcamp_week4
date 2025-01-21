@@ -27,7 +27,8 @@ public class Memory {
         this.createdAt = dateTime.toString();
     }
 
-    public LocalDateTime getCreatedAtAsDateTime() {
-        return LocalDateTime.parse(createdAt);
+    // String을 직접 설정하는 메소드 추가
+    public void setCreatedAtString(String createdAt) {
+        this.createdAt = createdAt;
     }
 }

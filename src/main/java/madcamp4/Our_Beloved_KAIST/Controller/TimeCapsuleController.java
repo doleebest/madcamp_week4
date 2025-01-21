@@ -68,11 +68,19 @@ public class TimeCapsuleController {
 
     // 구슬 전체 조회
     @GetMapping("/{capsuleId}/memories")
-    public ResponseEntity<List<MemoryResponse>> getAllMemories(@PathVariable String capsuleId) {  // capsuleId를 String으로 변경
-        List<Memory> memories = timeCapsuleService.getAllMemories(capsuleId);
-        return ResponseEntity.ok(memories.stream()
-                .map(MemoryResponse::from)
-                .collect(Collectors.toList()));
+    public ResponseEntity<List<MemoryResponse>> getAllMemories(@PathVariable String capsuleId) {
+        try {
+            System.out.println("Receiving request to get all memories for capsule: " + capsuleId);
+            List<Memory> memories = timeCapsuleService.getAllMemories(capsuleId);
+            List<MemoryResponse> responses = memories.stream()
+                    .map(MemoryResponse::from)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(responses);
+        } catch (Exception e) {
+            System.err.println("Error getting memories: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // 특정 구슬 조회
