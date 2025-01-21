@@ -1,70 +1,70 @@
 package madcamp4.Our_Beloved_KAIST.Controller;
 
 import lombok.RequiredArgsConstructor;
-import madcamp4.Our_Beloved_KAIST.Domain.GeoPoint;
-import madcamp4.Our_Beloved_KAIST.Domain.Marble;
+import madcamp4.Our_Beloved_KAIST.Domain.Memory;
+import madcamp4.Our_Beloved_KAIST.Domain.OpenableResponse;
 import madcamp4.Our_Beloved_KAIST.Domain.TimeCapsule;
-import madcamp4.Our_Beloved_KAIST.Dto.MarbleRequest;
-import madcamp4.Our_Beloved_KAIST.Dto.NearbyRequest;
-import madcamp4.Our_Beloved_KAIST.Dto.TimeCapsuleRequest;
+import madcamp4.Our_Beloved_KAIST.Dto.*;
 import madcamp4.Our_Beloved_KAIST.Service.TimeCapsuleService;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/timecapsules")
+@RequestMapping("/api/v1/capsules")
 @RequiredArgsConstructor
 public class TimeCapsuleController {
     private final TimeCapsuleService timeCapsuleService;
 
+    // 타임캡슐 생성
     @PostMapping
-    public ResponseEntity<TimeCapsule> createTimeCapsule(
-            @RequestParam String name,
-            @RequestParam String creatorName) {
-        TimeCapsule capsule = timeCapsuleService.createTimeCapsule(name, creatorName);
-        return ResponseEntity.ok(capsule);
+    public ResponseEntity<TimeCapsuleResponse> createCapsule(@RequestBody CreateCapsuleRequest request) {
+        TimeCapsule capsule = timeCapsuleService.createCapsule(request);
+        return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
-    @PostMapping("/{inviteCode}/join")
-    public ResponseEntity<TimeCapsule> joinTimeCapsule(
-            @PathVariable String inviteCode) {
-        TimeCapsule capsule = timeCapsuleService.findByInviteCode(inviteCode);
-        return ResponseEntity.ok(capsule);
+    // 구슬 생성
+    @PostMapping("/{capsuleId}/memories")
+    public ResponseEntity<MemoryResponse> createMemory(
+            @PathVariable Long capsuleId,
+            @RequestBody CreateMemoryRequest request) {
+        Memory memory = timeCapsuleService.createMemory(capsuleId, request);
+        return ResponseEntity.ok(MemoryResponse.from(memory));
     }
 
-    @PostMapping("/{capsuleId}/marbles")
-    public ResponseEntity<Marble> createMarble(
-            @PathVariable String capsuleId,
-            @RequestBody MarbleRequest marbleRequest) {
-
-        // MarbleRequest에서 content와 mediaUrls를 가져옵니다.
-        Marble marble = timeCapsuleService.addMarble(capsuleId, marbleRequest.getContent(), marbleRequest.getMediaUrls());
-
-        return ResponseEntity.ok(marble);
-    }
-
-
-
+    // 캡슐 봉인
     @PostMapping("/{capsuleId}/seal")
-    public ResponseEntity<Void> sealTimeCapsule(
-            @PathVariable String capsuleId,
-            @RequestBody TimeCapsuleRequest request) {
-        timeCapsuleService.sealTimeCapsule(capsuleId, request.getLocation(), request.getOpenDate());
-        return ResponseEntity.ok().build();
+    public ResponseEntity<TimeCapsuleResponse> sealCapsule(
+            @PathVariable Long capsuleId,
+            @RequestBody SealCapsuleRequest request) {
+        TimeCapsule capsule = timeCapsuleService.sealCapsule(capsuleId, request.getOpenDate());
+        return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
-    @GetMapping("/nearby")
-    public ResponseEntity<List<TimeCapsule>> getNearbyTimeCapsules(@RequestBody NearbyRequest request) {
-        double latitude = request.getLatitude();
-        double longitude = request.getLongitude();
-        double radiusInKm = request.getRadiusInKm();
-
-        List<TimeCapsule> nearbyCapsules = timeCapsuleService.findNearbyTimeCapsules(latitude, longitude, radiusInKm);
-        return ResponseEntity.ok(nearbyCapsules);
+    // 구슬 전체 조회
+    @GetMapping("/{capsuleId}/memories")
+    public ResponseEntity<List<MemoryResponse>> getAllMemories(@PathVariable Long capsuleId) {
+        List<Memory> memories = timeCapsuleService.getAllMemories(capsuleId);
+        return ResponseEntity.ok(memories.stream()
+                .map(MemoryResponse::from)
+                .collect(Collectors.toList()));
     }
 
+    // 특정 구슬 조회
+    @GetMapping("/{capsuleId}/memories/{memoryId}")
+    public ResponseEntity<MemoryResponse> getMemory(
+            @PathVariable Long capsuleId,
+            @PathVariable Long memoryId) {
+        Memory memory = timeCapsuleService.getMemory(capsuleId, memoryId);
+        return ResponseEntity.ok(MemoryResponse.from(memory));
+    }
+
+    // 캡슐 개봉 가능 여부 확인
+    @GetMapping("/{capsuleId}/openable")
+    public ResponseEntity<OpenableResponse> isOpenable(@PathVariable Long capsuleId) {
+        boolean openable = timeCapsuleService.isOpenable(capsuleId);
+        return ResponseEntity.ok(new OpenableResponse(openable));
+    }
 }

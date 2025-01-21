@@ -1,26 +1,28 @@
 package madcamp4.Our_Beloved_KAIST.Domain;
-import lombok.Data;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Data
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
 public class TimeCapsule {
-    private String id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private String name;
-    private String creatorName;
-    private String inviteCode;
-    private String createdAt;      // LocalDateTime 대신 String 사용
-    private String openDate;
-    private boolean isSealed;
-    private GeoPoint location;
-    private List<String> memberIds;
-    private List<Marble> marbles;
+    private String creator;
+    private LocalDateTime createdAt;
+    private LocalDateTime openDate;
+    private boolean sealed;
 
-    // Firebase Realtime DB를 위한 기본 생성자
-    public TimeCapsule() {
-        this.memberIds = new ArrayList<>();
-        this.marbles = new ArrayList<>();
-    }
-
+    @OneToMany(mappedBy = "timeCapsule", cascade = CascadeType.ALL)
+    private List<Memory> memories = new ArrayList<>();
 }
