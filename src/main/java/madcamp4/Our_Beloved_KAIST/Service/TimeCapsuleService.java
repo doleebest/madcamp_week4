@@ -129,24 +129,75 @@ public class TimeCapsuleService {
     }
 
     public TimeCapsule sealCapsule(String capsuleId, LocalDateTime openDate) {
-        TimeCapsule capsule = getCapsule(capsuleId);
-        if (capsule.isSealed()) {
-            throw new IllegalStateException("Capsule is already sealed");
+        System.out.println("Sealing capsule: " + capsuleId + " with open date: " + openDate);
+        CompletableFuture<TimeCapsule> resultFuture = new CompletableFuture<>();
+
+        try {
+            capsuleReference.child(capsuleId).addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    try {
+                        Map<String, Object> capsuleMap = (Map<String, Object>) dataSnapshot.getValue();
+                        if (capsuleMap == null) {
+                            resultFuture.completeExceptionally(new ResourceNotFoundException("Capsule not found"));
+                            return;
+                        }
+
+                        boolean isSealed = (boolean) capsuleMap.getOrDefault("sealed", false);
+                        if (isSealed) {
+                            resultFuture.completeExceptionally(new IllegalStateException("Capsule is already sealed"));
+                            return;
+                        }
+
+                        // 업데이트할 값 설정
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("sealed", true);
+                        updates.put("openDate", openDate.toString());
+
+                        capsuleReference.child(capsuleId).updateChildren(updates, (error, ref) -> {
+                            if (error != null) {
+                                System.err.println("Error sealing capsule: " + error.getMessage());
+                                resultFuture.completeExceptionally(error.toException());
+                            } else {
+                                // 캡슐 객체 생성 및 반환
+                                TimeCapsule capsule = new TimeCapsule();
+                                capsule.setId(capsuleId);
+                                capsule.setName((String) capsuleMap.get("name"));
+                                capsule.setCreator((String) capsuleMap.get("creator"));
+                                capsule.setCreatedAtString((String) capsuleMap.get("createdAt"));
+                                capsule.setSealed(true);
+                                capsule.setOpenDateString(openDate.toString());
+
+                                System.out.println("Successfully sealed capsule: " + capsuleId);
+                                resultFuture.complete(capsule);
+                            }
+                        });
+
+                    } catch (Exception e) {
+                        System.err.println("Error processing capsule: " + e.getMessage());
+                        resultFuture.completeExceptionally(e);
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    System.err.println("Database error: " + databaseError.getMessage());
+                    resultFuture.completeExceptionally(databaseError.toException());
+                }
+            });
+
+            return resultFuture.get(10, TimeUnit.SECONDS);
+
+        } catch (Exception e) {
+            System.err.println("Failed to seal capsule: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to seal capsule: " + e.getMessage());
         }
+    }
 
-        capsule.setSealed(true);
-        capsule.setOpenDate(openDate);
-
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("sealed", true);
-        updates.put("openDate", openDate.toString());
-
-        capsuleReference.child(capsuleId).updateChildren(updates, (error, ref) -> {
-            if (error != null) {
-                throw new RuntimeException("Failed to seal capsule: " + error.getMessage());
-            }
-        });
-        return capsule;
+    public boolean isOpenable(String capsuleId) {
+        TimeCapsule capsule = getCapsule(capsuleId);
+        return capsule.isSealed() && LocalDateTime.now().isAfter(capsule.getOpenDateAsDateTime());
     }
 
     public List<Memory> getAllMemories(String capsuleId) {
@@ -218,10 +269,10 @@ public class TimeCapsuleService {
         return future;
     }
 
-    public boolean isOpenable(String capsuleId) {
-        TimeCapsule capsule = getCapsule(capsuleId);
-        return capsule.isSealed() && LocalDateTime.now().isAfter(capsule.getOpenDate());
-    }
+//    public boolean isOpenable(String capsuleId) {
+//        TimeCapsule capsule = getCapsule(capsuleId);
+//        return capsule.isSealed() && LocalDateTime.now().isAfter(capsule.getOpenDate());
+//    }
 
     public TimeCapsule getCapsule(String capsuleId) {
         CompletableFuture<TimeCapsule> future = new CompletableFuture<>();

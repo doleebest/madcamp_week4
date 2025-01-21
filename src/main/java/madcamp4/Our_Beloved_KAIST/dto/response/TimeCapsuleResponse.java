@@ -13,23 +13,32 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class TimeCapsuleResponse {
-    private String id;  // Long -> String 변경
+    private String id;
     private String name;
     private String creator;
-    private LocalDateTime createdAt;
-    private LocalDateTime openDate;
+    private String createdAt;  // LocalDateTime -> String
+    private String openDate;   // LocalDateTime -> String
     private boolean sealed;
     private int memoryCount;
 
     public static TimeCapsuleResponse from(TimeCapsule capsule) {
         return TimeCapsuleResponse.builder()
-                .id(capsule.getId())  // Long -> String으로 수정 시 id 값을 String으로 변환
+                .id(capsule.getId())
                 .name(capsule.getName())
                 .creator(capsule.getCreator())
                 .createdAt(capsule.getCreatedAt())
                 .openDate(capsule.getOpenDate())
                 .sealed(capsule.isSealed())
-                .memoryCount(capsule.getMemories().size())
+                .memoryCount(0)  // capsule.getMemories() 대신 일단 0으로 설정
                 .build();
+    }
+
+    // 필요한 경우 날짜를 LocalDateTime으로 변환하는 메서드 추가
+    public LocalDateTime getCreatedAtAsDateTime() {
+        return createdAt != null ? LocalDateTime.parse(createdAt) : null;
+    }
+
+    public LocalDateTime getOpenDateAsDateTime() {
+        return openDate != null ? LocalDateTime.parse(openDate) : null;
     }
 }
