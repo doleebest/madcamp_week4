@@ -1,87 +1,46 @@
 package madcamp4.Our_Beloved_KAIST.Domain;
 
-import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.GeoPoint;
-import com.google.firebase.remoteconfig.User;
-import jakarta.persistence.*;
-import lombok.*;
-import org.springframework.data.annotation.Id;
+import com.google.firebase.database.IgnoreExtraProperties;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import javax.xml.stream.Location;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "time_capsules")
+@Getter
+@Setter
+@IgnoreExtraProperties
 public class TimeCapsule {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
+    private String id;
     private String name;
-    private String ownerId;
-    private String inviteCode;
-    private LocalDateTime openDate;
-    private String location;
-    private LocalDateTime createdAt;
+    private String creator;
+    private String createdAt;
+    private String openDate;
+    private boolean sealed;
 
-    // Getter & Setter
-    public Long getId() {
-        return id;
+    public TimeCapsule() {
+        // Default constructor required for Firebase
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setCreatedAt(LocalDateTime dateTime) {
+        this.createdAt = dateTime.toString();
     }
 
-    public String getName() {
-        return name;
+    public void setCreatedAtString(String createdAt) {
+        this.createdAt = createdAt;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setOpenDate(LocalDateTime dateTime) {
+        this.openDate = dateTime.toString();
     }
 
-    public String getOwnerId() {
-        return ownerId;
-    }
-
-    public void setOwnerId(String ownerId) {
-        this.ownerId = ownerId;
-    }
-
-    public String getInviteCode() {
-        return inviteCode;
-    }
-
-    public void setInviteCode(String inviteCode) {
-        this.inviteCode = inviteCode;
-    }
-
-    public LocalDateTime getOpenDate() {
-        return openDate;
-    }
-
-    public void setOpenDate(LocalDateTime openDate) {
+    public void setOpenDateString(String openDate) {
         this.openDate = openDate;
     }
 
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public LocalDateTime getOpenDateAsDateTime() {
+        return openDate != null ? LocalDateTime.parse(openDate) : null;
     }
 }
-

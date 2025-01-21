@@ -1,39 +1,155 @@
 package madcamp4.Our_Beloved_KAIST.Controller;
 
-
-import madcamp4.Our_Beloved_KAIST.Dto.ItemRequest;
-import madcamp4.Our_Beloved_KAIST.Dto.TimeCapsuleDetails;
-import madcamp4.Our_Beloved_KAIST.Dto.TimeCapsuleRequest;
-import madcamp4.Our_Beloved_KAIST.Dto.TimeCapsuleResponse;
+import lombok.RequiredArgsConstructor;
+import madcamp4.Our_Beloved_KAIST.Domain.ARMarker;
+import madcamp4.Our_Beloved_KAIST.Domain.Memory;
+import madcamp4.Our_Beloved_KAIST.Exception.ResourceNotFoundException;
+import madcamp4.Our_Beloved_KAIST.dto.request.ARMarkerRequest;
+import madcamp4.Our_Beloved_KAIST.dto.response.*;
+import madcamp4.Our_Beloved_KAIST.Domain.TimeCapsule;
 import madcamp4.Our_Beloved_KAIST.Service.TimeCapsuleService;
+import madcamp4.Our_Beloved_KAIST.dto.request.CreateCapsuleRequest;
+import madcamp4.Our_Beloved_KAIST.dto.request.CreateMemoryRequest;
+import madcamp4.Our_Beloved_KAIST.dto.request.SealCapsuleRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 
-@RestController
-@RequestMapping("/timecapsules")
-public class TimeCapsuleController {
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
+
+
+@RestController
+@RequestMapping("/api/v1/capsules")
+@RequiredArgsConstructor
+public class TimeCapsuleController {
     private final TimeCapsuleService timeCapsuleService;
 
-    public TimeCapsuleController(TimeCapsuleService timeCapsuleService) {
-        this.timeCapsuleService = timeCapsuleService;
+
+    // 타임캡슐 생성
+    @PostMapping
+    public ResponseEntity<TimeCapsuleResponse> createCapsule(@RequestBody CreateCapsuleRequest request) {
+        TimeCapsule capsule = timeCapsuleService.createCapsule(request);
+        return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<TimeCapsuleResponse> createTimeCapsule(@RequestBody TimeCapsuleRequest request) {
-        TimeCapsuleResponse response = timeCapsuleService.createTimeCapsule(request);
-        return ResponseEntity.ok(response);
+    // 구슬 생성
+    @PostMapping("/{capsuleId}/memories")
+    public ResponseEntity<MemoryResponse> createMemory(
+            @PathVariable String capsuleId,
+            @RequestBody CreateMemoryRequest request) {
+        try {
+            System.out.println("Received memory creation request for capsule: " + capsuleId);
+            Memory memory = timeCapsuleService.createMemory(capsuleId, request);
+            System.out.println("Memory created successfully");
+            return ResponseEntity.ok(MemoryResponse.from(memory));
+        } catch (ResourceNotFoundException e) {
+            System.err.println("Capsule not found: " + e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            System.err.println("Invalid state: " + e.getMessage());
+            return ResponseEntity.badRequest().body(null);
+        } catch (Exception e) {
+            System.err.println("Error creating memory: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
-    @GetMapping("/invite/{inviteCode}")
-    public ResponseEntity<TimeCapsuleDetails> getTimeCapsuleByInviteCode(@PathVariable String inviteCode) {
-        TimeCapsuleDetails details = timeCapsuleService.getTimeCapsuleByInviteCode(inviteCode);
-        return ResponseEntity.ok(details);
+    // 캡슐 봉인
+    @PostMapping("/{capsuleId}/seal")
+    public ResponseEntity<TimeCapsuleResponse> sealCapsule(
+            @PathVariable String capsuleId,  // capsuleId를 String으로 변경
+            @RequestBody SealCapsuleRequest request) {
+        TimeCapsule capsule = timeCapsuleService.sealCapsule(capsuleId, request.getOpenDate());
+        return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
-    @PostMapping("/{capsuleId}/add-item")
-    public ResponseEntity<String> addItemToCapsule(@PathVariable Long capsuleId, @RequestBody ItemRequest request) {
-        timeCapsuleService.addItemToCapsule(capsuleId, request);
-        return ResponseEntity.ok("Item added successfully");
+    // 구슬 전체 조회
+    @GetMapping("/{capsuleId}/memories")
+    public ResponseEntity<List<MemoryResponse>> getAllMemories(@PathVariable String capsuleId) {
+        try {
+            System.out.println("Receiving request to get all memories for capsule: " + capsuleId);
+            List<Memory> memories = timeCapsuleService.getAllMemories(capsuleId);
+            List<MemoryResponse> responses = memories.stream()
+                    .map(MemoryResponse::from)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(responses);
+        } catch (Exception e) {
+            System.err.println("Error getting memories: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // 특정 구슬 조회
+    @GetMapping("/{capsuleId}/memories/{memoryId}")
+    @Async
+    public CompletableFuture<ResponseEntity<MemoryResponse>> getMemory(
+            @PathVariable String capsuleId,
+            @PathVariable String memoryId) {
+
+        return timeCapsuleService.getMemory(capsuleId, memoryId)
+                .thenApply(memory -> ResponseEntity.ok(MemoryResponse.from(memory)))
+                .exceptionally(ex -> ResponseEntity.status(500).body(null)); // 예외 처리
+    }
+
+    // 캡슐 개봉 가능 여부 확인
+    @GetMapping("/{capsuleId}/openable")
+    public ResponseEntity<OpenableResponse> isOpenable(@PathVariable String capsuleId) {
+        try {
+            System.out.println("Receiving request to check if capsule is openable: " + capsuleId);
+            boolean openable = timeCapsuleService.isOpenable(capsuleId);
+            return ResponseEntity.ok(new OpenableResponse(openable));
+        } catch (Exception e) {
+            System.err.println("Error checking capsule openable status: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // 근처 캡슐 조회
+    @GetMapping("/nearby")
+    public ResponseEntity<List<NearbyCapsuleResponse>> findNearbyCapsules(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam double radius) {
+        try {
+            List<NearbyCapsuleResponse> nearbyCapsules =
+                    timeCapsuleService.findNearbyCapsules(lat, lng, radius);
+            return ResponseEntity.ok(nearbyCapsules);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // AR 마커 저장
+    @PostMapping("/{capsuleId}/ar-marker")
+    public ResponseEntity<ARMarkerResponse> saveARMarker(
+            @PathVariable String capsuleId,
+            @RequestBody ARMarkerRequest request) {
+        try {
+            ARMarker marker = timeCapsuleService.saveARMarker(capsuleId, request);
+            return ResponseEntity.ok(ARMarkerResponse.from(marker));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // AR 마커 조회
+    @GetMapping("/{capsuleId}/ar-marker")
+    public ResponseEntity<ARMarkerResponse> getARMarker(@PathVariable String capsuleId) {
+        try {
+            ARMarker marker = timeCapsuleService.getARMarker(capsuleId);
+            return ResponseEntity.ok(ARMarkerResponse.from(marker));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }
+

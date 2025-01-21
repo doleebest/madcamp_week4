@@ -2,6 +2,8 @@ server:
   port: 8080
 
 spring:
+  main:
+    allow-bean-definition-overriding: true
   security:
     oauth2:
       client:
@@ -15,11 +17,12 @@ spring:
 
 firebase:
   credentials:
-    path: firebaseServiceAccountKey.json
-    service-account: classpath:firebase-adminsdk.json
+    path: /Users/sojeonglee/Downloads/Our-Beloved-KAIST/firebaseServiceAccountKey.json
+    # service-account: classpath:firebase-adminsdk.json
 
 logging:
   level:
+    root: INFO
     madcamp4.Our_Beloved_KAIST: DEBUG
     org.springframework.security: DEBUG
     com.google.firebase: DEBUG
