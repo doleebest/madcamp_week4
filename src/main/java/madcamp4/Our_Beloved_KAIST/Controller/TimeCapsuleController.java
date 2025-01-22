@@ -46,19 +46,17 @@ public class TimeCapsuleController {
     @PostMapping(value = "/{capsuleId}/memories", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MemoryResponse> createMemory(
             @PathVariable String capsuleId,
-            @RequestParam(value = "file", required = false) MultipartFile file,
-            @RequestParam("type") MemoryType type,
-            @RequestParam(value = "content", required = false) String content) {
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestPart("type") MemoryType type,
+            @RequestPart(value = "content", required = false) String content) {
         try {
             CreateMemoryRequest request = new CreateMemoryRequest();
             request.setType(type);
 
-            if (file != null && (type == MemoryType.IMAGE || type == MemoryType.VIDEO)) {
-                // 파일이 있고 타입이 IMAGE나 VIDEO인 경우 파일 처리
+            if (file != null && !file.isEmpty() && (type == MemoryType.IMAGE || type == MemoryType.VIDEO)) {
                 String fileUrl = timeCapsuleService.uploadFile(capsuleId, file, type);
                 request.setContent(fileUrl);
             } else {
-                // TEXT 타입인 경우 content 사용
                 request.setContent(content);
             }
 
