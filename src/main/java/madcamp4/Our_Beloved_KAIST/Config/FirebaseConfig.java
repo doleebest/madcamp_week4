@@ -6,6 +6,7 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,10 +16,13 @@ import java.io.IOException;
 @Configuration
 public class FirebaseConfig {
 
+    @Value("${firebase.credentials.path}")
+    private String credentialsPath;
+
     @PostConstruct
     public void initialize() throws IOException {
         if (FirebaseApp.getApps().isEmpty()) {
-            FileInputStream serviceAccount = new FileInputStream("firebaseServiceAccountKey.json");
+            FileInputStream serviceAccount = new FileInputStream(credentialsPath);  // 수정된 부분
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .setDatabaseUrl("https://our-beloved-kaist-default-rtdb.firebaseio.com")
