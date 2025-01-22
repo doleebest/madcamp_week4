@@ -33,6 +33,8 @@ dependencies {
 
 	// Add Log4j2 dependency
 	implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
 
 	// Firebase
 	// implementation 'com.google.firebase:firebase-database:20.3.2'
