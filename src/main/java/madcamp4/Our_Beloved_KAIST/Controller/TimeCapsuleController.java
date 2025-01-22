@@ -44,7 +44,9 @@ public class TimeCapsuleController {
     }
 
     // 구슬 생성
-    @PostMapping(value = "/{capsuleId}/memories")
+    @PostMapping(value = "/{capsuleId}/memories",
+            consumes = {MediaType.MULTIPART_FORM_DATA_VALUE},  // 명시적으로 MULTIPART_FORM_DATA 지정
+            produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MemoryResponse> createMemory(
             @PathVariable String capsuleId,
             @RequestParam(value = "file", required = false) MultipartFile file,
