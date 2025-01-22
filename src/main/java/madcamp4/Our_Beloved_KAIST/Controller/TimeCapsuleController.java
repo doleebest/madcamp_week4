@@ -1,8 +1,10 @@
 package madcamp4.Our_Beloved_KAIST.Controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import madcamp4.Our_Beloved_KAIST.Domain.ARMarker;
 import madcamp4.Our_Beloved_KAIST.Domain.Memory;
+import madcamp4.Our_Beloved_KAIST.Domain.MemoryType;
 import madcamp4.Our_Beloved_KAIST.Exception.ResourceNotFoundException;
 import madcamp4.Our_Beloved_KAIST.dto.request.ARMarkerRequest;
 import madcamp4.Our_Beloved_KAIST.dto.response.*;
@@ -15,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -36,22 +39,27 @@ public class TimeCapsuleController {
         return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
-    // 구슬 생성
     @PostMapping("/{capsuleId}/memories")
     public ResponseEntity<MemoryResponse> createMemory(
             @PathVariable String capsuleId,
-            @RequestBody CreateMemoryRequest request) {
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam("type") MemoryType type,
+            @RequestParam(value = "content", required = false) String content) {
         try {
-            System.out.println("Received memory creation request for capsule: " + capsuleId);
+            CreateMemoryRequest request = new CreateMemoryRequest();
+            request.setType(type);
+
+            if (file != null && (type == MemoryType.IMAGE || type == MemoryType.VIDEO)) {
+                // 파일이 있고 타입이 IMAGE나 VIDEO인 경우 파일 처리
+                String fileUrl = timeCapsuleService.uploadFile(capsuleId, file, type);
+                request.setContent(fileUrl);
+            } else {
+                // TEXT 타입인 경우 content 사용
+                request.setContent(content);
+            }
+
             Memory memory = timeCapsuleService.createMemory(capsuleId, request);
-            System.out.println("Memory created successfully");
             return ResponseEntity.ok(MemoryResponse.from(memory));
-        } catch (ResourceNotFoundException e) {
-            System.err.println("Capsule not found: " + e.getMessage());
-            return ResponseEntity.notFound().build();
-        } catch (IllegalStateException e) {
-            System.err.println("Invalid state: " + e.getMessage());
-            return ResponseEntity.badRequest().body(null);
         } catch (Exception e) {
             System.err.println("Error creating memory: " + e.getMessage());
             e.printStackTrace();
@@ -86,15 +94,27 @@ public class TimeCapsuleController {
     }
 
     // 특정 구슬 조회
-    @GetMapping("/{capsuleId}/memories/{memoryId}")
-    @Async
-    public CompletableFuture<ResponseEntity<MemoryResponse>> getMemory(
-            @PathVariable String capsuleId,
-            @PathVariable String memoryId) {
+//    @GetMapping("/{capsuleId}/memories/{memoryId}")
+//    @Async
+//    public CompletableFuture<ResponseEntity<MemoryResponse>> getMemory(
+//            @PathVariable String capsuleId,
+//            @PathVariable String memoryId) {
+//
+//        return timeCapsuleService.getMemory(capsuleId, memoryId)
+//                .thenApply(memory -> ResponseEntity.ok(MemoryResponse.from(memory)))
+//                .exceptionally(ex -> ResponseEntity.status(500).body(null)); // 예외 처리
+//    }
 
-        return timeCapsuleService.getMemory(capsuleId, memoryId)
-                .thenApply(memory -> ResponseEntity.ok(MemoryResponse.from(memory)))
-                .exceptionally(ex -> ResponseEntity.status(500).body(null)); // 예외 처리
+    @GetMapping("/{capsuleId}/memories/{memoryId}")
+    public ResponseEntity<MemoryResponse> getMemory(@PathVariable String capsuleId, @PathVariable String memoryId) {
+        try {
+            Memory memory = timeCapsuleService.getMemory(capsuleId, memoryId);
+            return ResponseEntity.ok(MemoryResponse.from(memory));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // 캡슐 개봉 가능 여부 확인
