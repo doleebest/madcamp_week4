@@ -1,5 +1,6 @@
 package madcamp4.Our_Beloved_KAIST.Controller;
 
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import madcamp4.Our_Beloved_KAIST.Domain.ARMarker;
@@ -14,6 +15,7 @@ import madcamp4.Our_Beloved_KAIST.dto.request.CreateCapsuleRequest;
 import madcamp4.Our_Beloved_KAIST.dto.request.CreateMemoryRequest;
 import madcamp4.Our_Beloved_KAIST.dto.request.SealCapsuleRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/capsules")
 @RequiredArgsConstructor
+@MultipartConfig
 public class TimeCapsuleController {
     private final TimeCapsuleService timeCapsuleService;
 
@@ -39,7 +42,8 @@ public class TimeCapsuleController {
         return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
-    @PostMapping("/{capsuleId}/memories")
+    // 구슬 생성
+    @PostMapping(value = "/{capsuleId}/memories", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MemoryResponse> createMemory(
             @PathVariable String capsuleId,
             @RequestParam(value = "file", required = false) MultipartFile file,
