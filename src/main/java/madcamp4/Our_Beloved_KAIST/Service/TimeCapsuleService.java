@@ -1,7 +1,6 @@
 package madcamp4.Our_Beloved_KAIST.Service;
 
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.*;
 import com.google.firebase.database.*;
 import madcamp4.Our_Beloved_KAIST.Domain.ARMarker;
 import madcamp4.Our_Beloved_KAIST.Domain.Memory;
@@ -30,8 +29,6 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.cloud.StorageClient;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.firebase.cloud.StorageClient;
@@ -80,72 +77,43 @@ public class TimeCapsuleService {
     }
 
     public Memory createMemory(String capsuleId, CreateMemoryRequest request) {
-        System.out.println("Creating memory for capsule: " + capsuleId);
+        System.out.println("Firebase connection check - Bucket name: " + bucketName);
+        System.out.println("Memory Type: " + request.getType());
+        System.out.println("Content: " + (request.getContent() != null ? "content exists" : "content is null"));
 
-        CompletableFuture<Memory> resultFuture = new CompletableFuture<>();
+        if (request.getType() == MemoryType.IMAGE || request.getType() == MemoryType.VIDEO) {
+            // Base64 디코딩
+            byte[] fileData = Base64.getDecoder().decode(request.getContent());
 
-        try {
-            capsuleReference.child(capsuleId).addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    try {
-                        Map<String, Object> capsuleMap = (Map<String, Object>) dataSnapshot.getValue();
-                        if (capsuleMap == null) {
-                            resultFuture.completeExceptionally(new ResourceNotFoundException("Capsule not found"));
-                            return;
-                        }
+            // Firebase Storage에 업로드
+            String fileName = UUID.randomUUID().toString();
+            String contentType = request.getType() == MemoryType.IMAGE ? "image/jpeg" : "video/mp4";
 
-                        boolean isSealed = (boolean) capsuleMap.get("sealed");
-                        if (isSealed) {
-                            resultFuture.completeExceptionally(new IllegalStateException("Cannot add memories to sealed capsule"));
-                            return;
-                        }
+            BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, fileName)
+                    .setContentType(contentType)
+                    .build();
 
-                        // 새 메모리 생성
-                        String memoryId = UUID.randomUUID().toString();
-                        Memory memory = new Memory();
-                        memory.setId(memoryId);
-                        memory.setType(request.getType());
-                        memory.setContent(request.getContent());
-                        memory.setTimeCapsuleId(capsuleId);
-                        memory.setCreatedAt(LocalDateTime.now());
+            Storage storage = StorageOptions.getDefaultInstance().getService();
+            Blob blob = storage.create(blobInfo, fileData);
 
-                        Map<String, Object> memoryValues = new HashMap<>();
-                        memoryValues.put("id", memory.getId());
-                        memoryValues.put("type", memory.getType().toString());
-                        memoryValues.put("content", memory.getContent());
-                        memoryValues.put("timeCapsuleId", memory.getTimeCapsuleId());
-                        memoryValues.put("createdAt", memory.getCreatedAt());
-
-                        memoryReference.child(memoryId).setValue(memoryValues, (error, ref) -> {
-                            if (error != null) {
-                                System.err.println("Error creating memory: " + error.getMessage());
-                                resultFuture.completeExceptionally(error.toException());
-                            } else {
-                                System.out.println("Memory created successfully with ID: " + memoryId);
-                                resultFuture.complete(memory);
-                            }
-                        });
-
-                    } catch (Exception e) {
-                        resultFuture.completeExceptionally(e);
-                    }
-                }
-
-                @Override
-                public void onCancelled(DatabaseError databaseError) {
-                    System.err.println("Database error: " + databaseError.getMessage());
-                    resultFuture.completeExceptionally(databaseError.toException());
-                }
-            });
-
-            return resultFuture.get(10, TimeUnit.SECONDS);
-
-        } catch (Exception e) {
-            System.err.println("Failed to create memory: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("Failed to create memory: " + e.getMessage());
+            // Storage URL 생성
+            String fileUrl = String.format("https://storage.googleapis.com/%s/%s", bucketName, fileName);
+            request.setContent(fileUrl);
         }
+
+        // 기존의 메모리 생성 로직
+        String memoryId = UUID.randomUUID().toString();
+        Memory memory = new Memory();
+        memory.setId(memoryId);
+        memory.setType(request.getType());
+        memory.setContent(request.getContent());
+        memory.setTimeCapsuleId(capsuleId);
+        memory.setCreatedAt(LocalDateTime.now());
+
+        // Realtime Database에 저장
+        memoryReference.child(memoryId).setValueAsync(memory);
+
+        return memory;
     }
 
 

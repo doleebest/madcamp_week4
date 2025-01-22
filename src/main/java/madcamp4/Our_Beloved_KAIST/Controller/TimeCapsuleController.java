@@ -44,35 +44,14 @@ public class TimeCapsuleController {
     }
 
     // 구슬 생성
-    @PostMapping(value = "/{capsuleId}/memories",
-            consumes = {MediaType.MULTIPART_FORM_DATA_VALUE},  // 명시적으로 MULTIPART_FORM_DATA 지정
-            produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping("/{capsuleId}/memories")
     public ResponseEntity<MemoryResponse> createMemory(
             @PathVariable String capsuleId,
-            @RequestParam(value = "file", required = false) MultipartFile file,
-            @RequestParam("type") String type,
-            @RequestParam(value = "content", required = false) String content) {
+            @RequestBody CreateMemoryRequest request) {
         try {
-            // String을 MemoryType으로 변환
-            MemoryType memoryType = MemoryType.valueOf(type.toUpperCase());
-
-            CreateMemoryRequest request = new CreateMemoryRequest();
-            request.setType(memoryType);  // 변환된 MemoryType 사용
-
-            if (file != null && !file.isEmpty() &&
-                    (memoryType == MemoryType.IMAGE || memoryType == MemoryType.VIDEO)) {
-                String fileUrl = timeCapsuleService.uploadFile(capsuleId, file, memoryType);
-                request.setContent(fileUrl);
-            } else {
-                request.setContent(content);
-            }
-
+            // Firebase Storage에 파일 업로드 로직은 서비스에서 처리
             Memory memory = timeCapsuleService.createMemory(capsuleId, request);
             return ResponseEntity.ok(MemoryResponse.from(memory));
-        } catch (IllegalArgumentException e) {
-            // 잘못된 type 값이 전달된 경우
-            System.err.println("Invalid memory type: " + e.getMessage());
-            return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             System.err.println("Error creating memory: " + e.getMessage());
             e.printStackTrace();
