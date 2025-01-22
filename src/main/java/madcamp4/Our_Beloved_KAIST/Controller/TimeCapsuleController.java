@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/capsules")
 @RequiredArgsConstructor
 @MultipartConfig
+@CrossOrigin(origins = "*")
 public class TimeCapsuleController {
     private final TimeCapsuleService timeCapsuleService;
 
@@ -43,18 +44,22 @@ public class TimeCapsuleController {
     }
 
     // 구슬 생성
-    @PostMapping(value = "/{capsuleId}/memories", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/{capsuleId}/memories")
     public ResponseEntity<MemoryResponse> createMemory(
             @PathVariable String capsuleId,
-            @RequestPart(value = "file", required = false) MultipartFile file,
-            @RequestPart("type") MemoryType type,
-            @RequestPart(value = "content", required = false) String content) {
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam("type") String type,
+            @RequestParam(value = "content", required = false) String content) {
         try {
-            CreateMemoryRequest request = new CreateMemoryRequest();
-            request.setType(type);
+            // String을 MemoryType으로 변환
+            MemoryType memoryType = MemoryType.valueOf(type.toUpperCase());
 
-            if (file != null && !file.isEmpty() && (type == MemoryType.IMAGE || type == MemoryType.VIDEO)) {
-                String fileUrl = timeCapsuleService.uploadFile(capsuleId, file, type);
+            CreateMemoryRequest request = new CreateMemoryRequest();
+            request.setType(memoryType);  // 변환된 MemoryType 사용
+
+            if (file != null && !file.isEmpty() &&
+                    (memoryType == MemoryType.IMAGE || memoryType == MemoryType.VIDEO)) {
+                String fileUrl = timeCapsuleService.uploadFile(capsuleId, file, memoryType);
                 request.setContent(fileUrl);
             } else {
                 request.setContent(content);
@@ -62,6 +67,10 @@ public class TimeCapsuleController {
 
             Memory memory = timeCapsuleService.createMemory(capsuleId, request);
             return ResponseEntity.ok(MemoryResponse.from(memory));
+        } catch (IllegalArgumentException e) {
+            // 잘못된 type 값이 전달된 경우
+            System.err.println("Invalid memory type: " + e.getMessage());
+            return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             System.err.println("Error creating memory: " + e.getMessage());
             e.printStackTrace();
