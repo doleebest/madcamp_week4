@@ -1,5 +1,7 @@
 package madcamp4.Our_Beloved_KAIST.Service;
 
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
 import com.google.firebase.database.*;
 import madcamp4.Our_Beloved_KAIST.Domain.ARMarker;
 import madcamp4.Our_Beloved_KAIST.Domain.Memory;
@@ -13,7 +15,9 @@ import madcamp4.Our_Beloved_KAIST.dto.response.NearbyCapsuleResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -25,21 +29,31 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.cloud.StorageClient;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.firebase.cloud.StorageClient;
 
 @Service
 public class TimeCapsuleService {
     private final DatabaseReference capsuleReference;
     private final DatabaseReference memoryReference;
     private final DatabaseReference markerReference;
+    private final Storage storage;
+    private final String bucketName = "our-beloved-kaist.appspot.com";
 
     @Autowired
     public TimeCapsuleService(
             @Qualifier("timeCapsulesReference") DatabaseReference capsuleReference,
             @Qualifier("memoriesReference") DatabaseReference memoryReference,
-            @Qualifier("markerReference") DatabaseReference markerReference) {
+            @Qualifier("markerReference") DatabaseReference markerReference,
+            StorageClient storageClient) {  // FirebaseStorage 주입 추가
         this.capsuleReference = capsuleReference;
         this.memoryReference = memoryReference;
         this.markerReference = markerReference;
+        this.storage = storageClient.bucket().getStorage();
     }
     public TimeCapsule createCapsule(CreateCapsuleRequest request) {
         String capsuleId = UUID.randomUUID().toString();
@@ -133,6 +147,8 @@ public class TimeCapsuleService {
             throw new RuntimeException("Failed to create memory: " + e.getMessage());
         }
     }
+
+
 
     public TimeCapsule sealCapsule(String capsuleId, LocalDateTime openDate) {
         System.out.println("Sealing capsule: " + capsuleId + " with open date: " + openDate);
@@ -298,27 +314,64 @@ public class TimeCapsuleService {
         }
     }
 
-    public CompletableFuture<Memory> getMemory(String capsuleId, String memoryId) {
-        CompletableFuture<Memory> future = new CompletableFuture<>();
+    public Memory getMemory(String capsuleId, String memoryId) {
+        CompletableFuture<Memory> resultFuture = new CompletableFuture<>();
 
         memoryReference.child(memoryId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                Memory memory = dataSnapshot.getValue(Memory.class);
-                if (memory == null || !memory.getTimeCapsuleId().equals(capsuleId)) {
-                    future.completeExceptionally(new ResourceNotFoundException("Memory not found"));
-                } else {
-                    future.complete(memory);
+                Map<String, Object> memoryMap = (Map<String, Object>) dataSnapshot.getValue();
+                if (memoryMap == null) {
+                    resultFuture.completeExceptionally(new ResourceNotFoundException("Memory not found"));
+                    return;
                 }
+
+                Memory memory = new Memory();
+                memory.setId((String) memoryMap.get("id"));
+                memory.setType(MemoryType.valueOf((String) memoryMap.get("type")));
+                memory.setContent((String) memoryMap.get("content"));
+                memory.setTimeCapsuleId((String) memoryMap.get("timeCapsuleId"));
+                memory.setCreatedAt(LocalDateTime.parse((String) memoryMap.get("createdAt")));
+
+                resultFuture.complete(memory);
             }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
-                future.completeExceptionally(new RuntimeException("Database error: " + databaseError.getMessage()));
+                resultFuture.completeExceptionally(databaseError.toException());
             }
         });
 
-        return future;
+        try {
+            return resultFuture.get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get memory: " + e.getMessage());
+        }
+    }
+
+    public String uploadFile(String capsuleId, MultipartFile file, MemoryType type) throws IOException {
+        String fileName = generateFileName(file.getOriginalFilename());
+        String folderPath = type == MemoryType.IMAGE ? "images" : "videos";
+        String fullPath = String.format("%s/%s/%s", capsuleId, folderPath, fileName);
+
+        BlobId blobId = BlobId.of(bucketName, fullPath);
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                .setContentType(file.getContentType())
+                .build();
+
+        // 파일 업로드
+        Blob blob = storage.create(blobInfo, file.getBytes());
+
+        // 다운로드 URL 반환
+        return blob.getMediaLink();
+    }
+
+    private String generateFileName(String originalFileName) {
+        return UUID.randomUUID().toString() + getFileExtension(originalFileName);
+    }
+
+    private String getFileExtension(String fileName) {
+        return fileName.substring(fileName.lastIndexOf("."));
     }
 
     public TimeCapsule getCapsule(String capsuleId) {

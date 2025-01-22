@@ -4,11 +4,13 @@ import com.google.firebase.database.annotations.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.NotBlank;
 
 import madcamp4.Our_Beloved_KAIST.Domain.MemoryType;
 
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateMemoryRequest {
