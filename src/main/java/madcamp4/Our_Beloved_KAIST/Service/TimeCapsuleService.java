@@ -1,5 +1,8 @@
 package madcamp4.Our_Beloved_KAIST.Service;
 
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.storage.*;
 import com.google.firebase.database.*;
 import madcamp4.Our_Beloved_KAIST.Domain.ARMarker;
@@ -75,6 +78,38 @@ public class TimeCapsuleService {
         });
         return capsule;
     }
+
+    public TimeCapsule getCapsuleById(String capsuleId) throws ExecutionException, InterruptedException {
+        // capsuleReference를 사용하여 직접 데이터에 접근
+        DatabaseReference ref = capsuleReference.child(capsuleId);
+
+        // 비동기 작업 수행
+        CompletableFuture<DataSnapshot> future = new CompletableFuture<>();
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                future.complete(dataSnapshot);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                future.completeExceptionally(new RuntimeException(databaseError.getMessage()));
+            }
+        });
+
+        // 데이터가 로드될 때까지 기다림
+        DataSnapshot snapshot = future.get();
+        if (snapshot.exists()) {
+            // snapshot에서 TimeCapsule 객체로 변환
+            return snapshot.getValue(TimeCapsule.class);
+        } else {
+            throw new ResourceNotFoundException("Time capsule not found with id: " + capsuleId);
+        }
+    }
+
+
+
+
 
     public Memory createMemory(String capsuleId, CreateMemoryRequest request) {
         System.out.println("Firebase connection check - Bucket name: " + bucketName);

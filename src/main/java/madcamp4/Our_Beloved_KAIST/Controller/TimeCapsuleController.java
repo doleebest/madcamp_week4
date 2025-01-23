@@ -43,6 +43,22 @@ public class TimeCapsuleController {
         return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
+    @GetMapping("/{capsuleId}")
+    public ResponseEntity<TimeCapsuleResponse> getCapsule(@PathVariable String capsuleId) {
+        try {
+            TimeCapsule capsule = timeCapsuleService.getCapsuleById(capsuleId);
+            return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            System.err.println("Error retrieving capsule: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+
+
     // 구슬 생성
     @PostMapping("/{capsuleId}/memories")
     public ResponseEntity<MemoryResponse> createMemory(

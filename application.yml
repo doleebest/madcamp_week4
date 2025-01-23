@@ -21,6 +21,8 @@ spring:
 #              - profile
 
 firebase:
+  database:
+    url: https://our-beloved-kaist-default-rtdb.firebaseio.com
   credentials:
     path: /Users/sojeonglee/Downloads/Our-Beloved-KAIST/firebaseServiceAccountKey.json
     # service-account: classpath:firebase-adminsdk.json
