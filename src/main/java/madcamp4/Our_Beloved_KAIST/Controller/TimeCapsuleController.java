@@ -43,18 +43,16 @@ public class TimeCapsuleController {
         return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
+    //타임캡슐 전체 조회. 아이디 조회용
     @GetMapping
     public ResponseEntity<List<String>> getAllCapsuleIds() {
         try {
-            // CompletableFuture의 결과를 기다립니다.
-            List<String> capsuleIds = timeCapsuleService.getAllCapsuleIds().get();
+            List<String> capsuleIds = timeCapsuleService.getAllCapsuleIds().join(); // join() 사용
             return ResponseEntity.ok(capsuleIds);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
-
 
     // 구슬 생성
     @PostMapping("/{capsuleId}/memories")
