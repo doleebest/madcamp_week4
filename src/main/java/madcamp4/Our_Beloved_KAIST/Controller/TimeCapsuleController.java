@@ -43,16 +43,13 @@ public class TimeCapsuleController {
         return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
-    @GetMapping("/{capsuleId}")
-    public ResponseEntity<TimeCapsuleResponse> getCapsule(@PathVariable String capsuleId) {
+    @GetMapping
+    public ResponseEntity<List<String>> getAllCapsuleIds() {
         try {
-            TimeCapsule capsule = timeCapsuleService.getCapsuleById(capsuleId);
-            return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.notFound().build();
+            // CompletableFuture의 결과를 기다립니다.
+            List<String> capsuleIds = timeCapsuleService.getAllCapsuleIds().get();
+            return ResponseEntity.ok(capsuleIds);
         } catch (Exception e) {
-            System.err.println("Error retrieving capsule: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
