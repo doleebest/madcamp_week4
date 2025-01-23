@@ -43,16 +43,23 @@ public class TimeCapsuleController {
         return ResponseEntity.ok(TimeCapsuleResponse.from(capsule));
     }
 
-    //타임캡슐 전체 조회. 아이디 조회용
+    // 타임캡슐 전체 조회
     @GetMapping
-    public ResponseEntity<List<String>> getAllCapsuleIds() {
+    public ResponseEntity<List<TimeCapsuleResponse>> getAllCapsules() {
         try {
-            List<String> capsuleIds = timeCapsuleService.getAllCapsuleIds().join(); // join() 사용
-            return ResponseEntity.ok(capsuleIds);
+            System.out.println("Receiving request to get all capsules.");
+            List<TimeCapsule> capsules = timeCapsuleService.getAllCapsules();
+            List<TimeCapsuleResponse> responses = capsules.stream()
+                    .map(TimeCapsuleResponse::from)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(responses);
         } catch (Exception e) {
+            System.err.println("Error getting capsules: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
 
     // 구슬 생성
     @PostMapping("/{capsuleId}/memories")
