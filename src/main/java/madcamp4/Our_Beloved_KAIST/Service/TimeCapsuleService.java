@@ -79,6 +79,30 @@ public class TimeCapsuleService {
         return capsule;
     }
 
+    public CompletableFuture<List<String>> getAllCapsuleIds() {
+        CompletableFuture<List<String>> future = new CompletableFuture<>();
+        List<String> capsuleIds = new ArrayList<>();
+
+        capsuleReference.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                    String capsuleId = snapshot.getKey(); // 타임캡슐의 ID를 가져옵니다
+                    capsuleIds.add(capsuleId);
+                }
+                future.complete(capsuleIds); // 데이터를 다 가져온 후, CompletableFuture를 완료 처리
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                future.completeExceptionally(new RuntimeException("Failed to fetch capsule IDs: " + databaseError.getMessage()));
+            }
+        });
+
+        return future; // 비동기적으로 결과를 반환
+    }
+
+
     public TimeCapsule getCapsuleById(String capsuleId) throws ExecutionException, InterruptedException {
         // capsuleReference를 사용하여 직접 데이터에 접근
         DatabaseReference ref = capsuleReference.child(capsuleId);
