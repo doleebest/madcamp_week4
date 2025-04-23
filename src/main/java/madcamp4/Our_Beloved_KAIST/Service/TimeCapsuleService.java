@@ -36,6 +36,12 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.firebase.cloud.StorageClient;
 
+import com.google.api.core.ApiFuture;
+import com.google.firebase.database.DataSnapshot;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 public class TimeCapsuleService {
     private final DatabaseReference capsuleReference;
@@ -77,6 +83,62 @@ public class TimeCapsuleService {
             }
         });
         return capsule;
+    }
+
+    public List<TimeCapsule> getAllCapsules() {
+        List<TimeCapsule> capsules = new ArrayList<>();
+
+        try {
+            DatabaseReference.CompletionListener listener = (error, ref) -> {
+                if (error != null) {
+                    throw new RuntimeException("Failed to fetch capsules: " + error.getMessage());
+                }
+
+                ref.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot snapshot) {
+                        snapshot.getChildren().forEach(child -> {
+                            String id = child.child("id").getValue(String.class);
+                            String name = child.child("name").getValue(String.class);
+                            String creator = child.child("creator").getValue(String.class);
+                            String createdAtStr = child.child("createdAt").getValue(String.class);
+                            Boolean sealed = child.child("sealed").getValue(Boolean.class);
+
+                            TimeCapsule capsule = new TimeCapsule();
+                            capsule.setId(id);
+                            capsule.setName(name);
+                            capsule.setCreator(creator);
+                            capsule.setCreatedAt(LocalDateTime.parse(createdAtStr));
+                            capsule.setSealed(sealed);
+
+                            capsules.add(capsule);
+                        });
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError error) {
+                        throw new RuntimeException("Failed to fetch capsules: " + error.getMessage());
+                    }
+                });
+            };
+
+            capsuleReference.addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot snapshot) {
+                    // 이미 위의 리스너에서 처리됨
+                }
+
+                @Override
+                public void onCancelled(DatabaseError error) {
+                    throw new RuntimeException("Failed to fetch capsules: " + error.getMessage());
+                }
+            });
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch capsules", e);
+        }
+
+        return capsules;
     }
 
     public CompletableFuture<List<String>> getAllCapsuleIds() {
