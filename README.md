@@ -32,7 +32,7 @@
     </tr>
       <tr>
       <td align="center">Android</a></td>
-      <td align="center">BE, CSS</a></td>
+      <td align="center">BE</a></td>
     </tr>
     </tr>
   </table>
